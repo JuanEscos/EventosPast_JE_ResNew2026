@@ -107,7 +107,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Sonidos
-import winsound
+try:
+    import winsound
+except ImportError:
+    winsound = None
 # Cambiar el texto a color
 from colorama import Fore, Style
 
@@ -122,7 +125,8 @@ frequency = 3000
 # Duration in milliseconds (ms)
 duration = 500   
 # Play the beep sound
-winsound.Beep(frequency, duration)
+if winsound:
+    winsound.Beep(frequency, duration)
 ################################################
 #
 # Script para obtener tablas de datos formato csv para lectura
@@ -685,9 +689,10 @@ elapsed = fin - start
 print("\n     PROCESO FINALIZADO CORRECTAMENTE", inDate2, "Tiempo: ",elapsed, "\n")  
 
 import time
-# Start playing a system sound in loop asynchronously
-winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_LOOP | winsound.SND_ASYNC)
-# Let it play for 4 seconds
-time.sleep(4)
-# Stop the sound
-winsound.PlaySound(None, winsound.SND_ASYNC)
+if winsound:
+    # Start playing a system sound in loop asynchronously
+    winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_LOOP | winsound.SND_ASYNC)
+    # Let it play for 4 seconds
+    time.sleep(4)
+    # Stop the sound
+    winsound.PlaySound(None, winsound.SND_ASYNC)
