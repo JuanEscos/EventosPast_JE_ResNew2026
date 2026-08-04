@@ -102,8 +102,11 @@ def main():
     print(f"{Fore.GREEN}Tiempo total de ejecución:{Style.RESET_ALL} {int(horas)}h {int(minutos)}m {segundos:.1f}s")
     
     try:
-        import winsound
-        winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_ASYNC)
+        try:
+            import winsound
+            winsound.PlaySound("SystemAsterisk", winsound.SND_ALIAS | winsound.SND_ASYNC)
+        except ImportError:
+            pass
     except Exception:
         pass
 
