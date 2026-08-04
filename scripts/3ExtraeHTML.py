@@ -409,15 +409,12 @@ def build_driver():
             opts.binary_location = chrome_bin
 
         if HEADLESS:
-            opts.add_argument("--headless")
-        opts.add_argument("--disable-gpu")
+            opts.add_argument("--headless=new")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
-        opts.add_argument("--disable-features=RendererCodeIntegrity")
-        opts.add_argument("--disable-features=Translate,BackForwardCache")
-        opts.add_argument("--no-first-run")
-        opts.add_argument("--no-default-browser-check")
-        opts.add_argument("--remote-allow-origins=*")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        opts.add_experimental_option("useAutomationExtension", False)
         opts.add_argument("--window-size=1400,1800")
 
         if USE_PROFILE:
