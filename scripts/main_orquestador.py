@@ -88,11 +88,20 @@ def main():
     
     tiempo_orquestador_inicio = time.time()
     
-    for script in scripts:
+    for i, script in enumerate(scripts):
         exito = ejecutar_script(script)
         if not exito:
             # Si falla uno, detenemos toda la ejecución para no generar archivos corruptos
             sys.exit(1)
+        
+        # Pausa de limpieza entre scripts de Selenium (2 -> 3) en entornos Linux/CI
+        # para garantizar que el runner libera RAM y descriptores de fichero
+        if script == "2CaptaURLScompeticion.py" and sys.platform != "win32":
+            import platform
+            if platform.system() == "Linux":
+                print(f"\n⏳ Pausa de 15s para liberar recursos del runner antes del script 3...\n")
+                os.system("pkill -9 chrome; pkill -9 chromedriver; sync")
+                time.sleep(15)
             
     tiempo_total = time.time() - tiempo_orquestador_inicio
     minutos, segundos = divmod(tiempo_total, 60)

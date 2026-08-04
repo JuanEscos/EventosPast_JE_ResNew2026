@@ -405,23 +405,32 @@ def build_driver():
         os.system("pkill -9 chrome")
         os.system("pkill -9 chromedriver")
         os.system("rm -rf /tmp/.com.google.Chrome.* /tmp/.org.chromium.Chromium.* /tmp/chrome_profile_* /tmp/tmp*")
+        time.sleep(3)  # Dar tiempo al SO para liberar recursos
         
         from selenium.webdriver.chrome.options import Options as ChromeOptions
         from selenium.webdriver.chrome.service import Service
         from webdriver_manager.chrome import ChromeDriverManager
+        import tempfile
         
         opts = ChromeOptions()
-        if HEADLESS:
-            opts.add_argument("--headless=new")
+        opts.add_argument("--headless")        # modo legacy, más estable en CI
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
-        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--disable-gpu")
+        opts.add_argument("--disable-extensions")
+        opts.add_argument("--disable-software-rasterizer")
+        opts.add_argument("--disable-background-networking")
+        opts.add_argument("--memory-pressure-off")
+        opts.add_argument("--max_old_space_size=512")
+        opts.add_argument("--single-process")
+        tmp_dir = tempfile.mkdtemp(prefix="chrome3_")
+        opts.add_argument(f"--user-data-dir={tmp_dir}")
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])
         opts.add_experimental_option("useAutomationExtension", False)
         
         service = Service(ChromeDriverManager().install())
         driver = webdriver.Chrome(service=service, options=opts)
-        driver._temp_profile = None
+        driver._temp_profile = tmp_dir
         return driver
 
     temp_profile = None
