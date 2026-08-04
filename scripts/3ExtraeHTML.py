@@ -317,6 +317,8 @@ RING_URLS_FALLBACK = [
 BROWSER = "chrome"   # "chrome" o "edge"
 HEADLESS = False     # pon True si quieres sin ventana
 USE_PROFILE = True
+if os.getenv("GITHUB_ACTIONS") == "true" or os.name != "nt":
+    USE_PROFILE = False
 
 # Rutas habituales de perfiles
 CHROME_USER_DATA_DIRS = [
