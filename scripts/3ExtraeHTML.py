@@ -399,9 +399,30 @@ def profile_locked(profile_path: str) -> bool:
 def build_driver():
     """Construye un driver robusto para Chrome/Edge con fallback a perfil temporal."""
     import platform
+    import os
+    
     if platform.system() == "Linux":
         os.system("pkill -9 chrome")
         os.system("pkill -9 chromedriver")
+        os.system("rm -rf /tmp/.com.google.Chrome.* /tmp/.org.chromium.Chromium.* /tmp/chrome_profile_* /tmp/tmp*")
+        
+        from selenium.webdriver.chrome.options import Options as ChromeOptions
+        from selenium.webdriver.chrome.service import Service
+        from webdriver_manager.chrome import ChromeDriverManager
+        
+        opts = ChromeOptions()
+        if HEADLESS:
+            opts.add_argument("--headless=new")
+        opts.add_argument("--no-sandbox")
+        opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        opts.add_experimental_option("useAutomationExtension", False)
+        
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=opts)
+        driver._temp_profile = None
+        return driver
 
     temp_profile = None
 
