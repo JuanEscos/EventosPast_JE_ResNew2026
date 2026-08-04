@@ -1,0 +1,7 @@
+.env
+__pycache__/
+output/
+*.csv
+*.xlsx
+~$*.xlsx
+!NewWeb/Privado/ControlWeb/Data/combined_results_con_cabecera_wp.csv

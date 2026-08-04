@@ -1,0 +1,60 @@
+name: Ejecución Periódica de Eventos
+
+on:
+  schedule:
+    - cron: '0 0 * * 2' # Cada martes a las 00:00 UTC
+  workflow_dispatch: # Permite ejecución manual desde GitHub
+
+permissions:
+  contents: write # Necesario para hacer commit y push de vuelta al repo
+
+jobs:
+  run-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+      
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Instalar dependencias
+        run: |
+          pip install -r requirements.txt
+          
+      - name: Ejecutar Orquestador
+        env:
+          FLOW_EMAIL: ${{ secrets.FLOW_EMAIL }}
+          FLOW_PASS: ${{ secrets.FLOW_PASS }}
+          FLOW_EMAIL1: ${{ secrets.FLOW_EMAIL1 }}
+          FLOW_PASS1: ${{ secrets.FLOW_PASS1 }}
+          HEADLESS: True
+        run: |
+          cd scripts
+          python main_orquestador.py
+          
+      - name: Copiar resultados y hacer commit
+        run: |
+          # Crear el directorio destino si no existe
+          mkdir -p NewWeb/Privado/ControlWeb/Data/
+          
+          # Copiar el archivo generado a la nueva ruta
+          if [ -f "scripts/combined_results_con_cabecera_wp.csv" ]; then
+            cp scripts/combined_results_con_cabecera_wp.csv NewWeb/Privado/ControlWeb/Data/combined_results_con_cabecera_wp.csv
+          else
+            echo "No se encontró el archivo combined_results_con_cabecera_wp.csv en la carpeta scripts/"
+            exit 1
+          fi
+          
+          # Configurar git para el commit
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          # Añadir y commitear el archivo si hay cambios
+          git add NewWeb/Privado/ControlWeb/Data/combined_results_con_cabecera_wp.csv
+          git diff --staged --quiet || git commit -m "Actualizar combined_results_con_cabecera_wp.csv"
+          
+          # Hacer push
+          git push
