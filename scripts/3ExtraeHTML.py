@@ -398,6 +398,11 @@ def profile_locked(profile_path: str) -> bool:
 
 def build_driver():
     """Construye un driver robusto para Chrome/Edge con fallback a perfil temporal."""
+    import platform
+    if platform.system() == "Linux":
+        os.system("pkill -9 chrome")
+        os.system("pkill -9 chromedriver")
+
     temp_profile = None
 
     if BROWSER.lower() == "chrome":
@@ -415,7 +420,6 @@ def build_driver():
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])
         opts.add_experimental_option("useAutomationExtension", False)
-        opts.add_argument("--window-size=1400,1800")
 
         if USE_PROFILE:
             profile_path = os.path.join(CHROME_PROFILE_DIR, CHROME_PROFILE_NAME)
