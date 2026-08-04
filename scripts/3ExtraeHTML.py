@@ -409,7 +409,7 @@ def build_driver():
             opts.binary_location = chrome_bin
 
         if HEADLESS:
-            opts.add_argument("--headless=new")
+            opts.add_argument("--headless")
         opts.add_argument("--disable-gpu")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
@@ -442,7 +442,7 @@ def build_driver():
             opts.binary_location = edge_bin
 
         if HEADLESS:
-            opts.add_argument("--headless=new")
+            opts.add_argument("--headless")
         opts.add_argument("--disable-gpu")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
