@@ -66,3 +66,22 @@ jobs:
           
           # Hacer push
           git push
+          
+      - name: Importar CSV en BD WordPress (via curl)
+        run: |
+          echo "Esperando 10s para que GitHub propague el CSV..."
+          sleep 10
+          HTTP_STATUS=$(curl -s -o /tmp/import_response.txt -w "%{http_code}" \
+            --max-time 300 \
+            -X POST \
+            "https://agilitydivertidog.com/NewWeb/Privado/ControlWeb/aniadir_resultados_por_prueba_para_WP_a_JE_ResNew2026.php" \
+            -d "run_import=1&auto_token=${{ secrets.IMPORT_TOKEN }}")
+          echo "--- Respuesta del servidor ---"
+          cat /tmp/import_response.txt
+          echo ""
+          echo "--- HTTP Status: $HTTP_STATUS ---"
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "ERROR: El servidor devolvió HTTP $HTTP_STATUS"
+            exit 1
+          fi
+          echo "Importación completada correctamente."
