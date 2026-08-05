@@ -68,6 +68,7 @@ jobs:
           git push
           
       - name: Importar CSV en BD WordPress (via curl)
+        id: import_db
         run: |
           echo "Esperando 10s para que GitHub propague el CSV..."
           sleep 10
@@ -80,8 +81,50 @@ jobs:
           cat /tmp/import_response.txt
           echo ""
           echo "--- HTTP Status: $HTTP_STATUS ---"
+          
+          # Guardar resumen para el email
+          RESUMEN=$(cat /tmp/import_response.txt)
+          echo "import_resumen<<EOF" >> $GITHUB_OUTPUT
+          echo "$RESUMEN" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "http_status=$HTTP_STATUS" >> $GITHUB_OUTPUT
+          
           if [ "$HTTP_STATUS" != "200" ]; then
             echo "ERROR: El servidor devolvió HTTP $HTTP_STATUS"
             exit 1
           fi
           echo "Importación completada correctamente."
+
+      - name: Enviar email de resumen
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: jescosq@gmail.com
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: >
+            ${{ job.status == 'success' && '✅ FlowAgility – Pipeline completado correctamente' || '❌ FlowAgility – ERROR en el pipeline' }}
+          to: jescosq@gmail.com
+          from: "FlowAgility Bot <jescosq@gmail.com>"
+          body: |
+            🐕 ORQUESTADOR FLOWAGILITY – INFORME DE EJECUCIÓN
+            ==================================================
+            
+            Fecha:   ${{ github.event.head_commit.timestamp || '' }}
+            Estado:  ${{ job.status }}
+            Commit:  ${{ github.sha }}
+            Rama:    ${{ github.ref_name }}
+            
+            --------------------------------------------------
+            📊 RESUMEN IMPORTACIÓN EN BASE DE DATOS
+            --------------------------------------------------
+            ${{ steps.import_db.outputs.import_resumen || '(sin datos – el pipeline falló antes de importar)' }}
+            
+            --------------------------------------------------
+            🔗 Ver detalles completos en GitHub Actions:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            --------------------------------------------------
+            
+            Este correo fue generado automáticamente por GitHub Actions.
