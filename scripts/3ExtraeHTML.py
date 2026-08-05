@@ -422,7 +422,6 @@ def build_driver():
         opts.add_argument("--disable-background-networking")
         opts.add_argument("--memory-pressure-off")
         opts.add_argument("--max_old_space_size=512")
-        opts.add_argument("--single-process")
         tmp_dir = tempfile.mkdtemp(prefix="chrome3_")
         opts.add_argument(f"--user-data-dir={tmp_dir}")
         opts.add_experimental_option("excludeSwitches", ["enable-automation"])

@@ -20,10 +20,18 @@ jobs:
         with:
           python-version: '3.10'
           
-      - name: Instalar dependencias
+      - name: Instalar dependencias Python
         run: |
           pip install -r requirements.txt
           
+      - name: Instalar browsers de Playwright
+        run: |
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Setup Chrome para Selenium
+        uses: browser-actions/setup-chrome@v1
+
       - name: Ejecutar Orquestador
         env:
           FLOW_EMAIL: ${{ secrets.FLOW_EMAIL }}
