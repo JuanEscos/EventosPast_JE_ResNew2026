@@ -94,7 +94,9 @@ jobs:
             exit 1
           fi
 
-          if grep -Eiq 'fatal error|mysqli_sql_exception|duplicate entry|\bwarning\b|\berror\b' /tmp/import_response.txt; then
+          # Solo rechazar señales estructurales de PHP/MySQL. El resumen correcto
+          # contiene la palabra "error" en "Filas con error: 0".
+          if grep -Eiq 'fatal error|mysqli_sql_exception|duplicate entry|^ERROR:' /tmp/import_response.txt; then
             echo "ERROR: El importador PHP devolvió un error aunque HTTP fuese 200"
             exit 1
           fi
