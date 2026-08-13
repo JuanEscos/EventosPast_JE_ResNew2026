@@ -432,10 +432,8 @@ def extract_run_meta(soup: BeautifulSoup) -> Dict[str, Dict[str, str]]:
     grid = soup.find("div", class_=lambda c: c and "grid-cols-3" in c and "table-text" in c)
     if not grid:
         grid = soup.find("div", class_=lambda c: c and "grid-cols-3" in c)
-    if not grid:
-        return {}
 
-    kids = [k for k in grid.find_all(recursive=False) if getattr(k, "name", None)]
+    kids = [k for k in grid.find_all(recursive=False) if getattr(k, "name", None)] if grid else []
     meta: Dict[str, Dict[str, str]] = {}
 
     def rx(pat: str, txt: str) -> str:
@@ -464,6 +462,27 @@ def extract_run_meta(soup: BeautifulSoup) -> Dict[str, Dict[str, str]]:
             "Juez": rx(r"Juez:\s*(.*?)\s*(?:Velocidad:|$)", t2),
             "Velocidad_ms": rx(r"Velocidad:\s*([0-9]+(?:[.,][0-9]+)?)\s*m/s", t2),
         }
+
+    # Algunas plantillas de impresión no presentan los metadatos en la
+    # cuadrícula de tres columnas. Recuperarlos desde cada bloque que contiene
+    # la modalidad y "Juez:" evita descartar nombres válidos por el layout.
+    for element in soup.find_all(["div", "section", "article", "li"]):
+        text = clean_text(element)
+        match = re.search(r"(?<![A-Z0-9])(AG1|AG2|JP1|JP2|AG|JP)(?![A-Z0-9]).*?Juez:\s*(.*?)\s*(?:Velocidad:|$)", text, flags=re.I)
+        if not match:
+            continue
+        run = match.group(1).upper()
+        judge = match.group(2).strip(" ·|,-")
+        if not judge:
+            continue
+        current = meta.setdefault(run, {})
+        if not current.get("Juez"):
+            current["Juez"] = judge
+            current.setdefault("Obstaculos", rx(r"Obst[aá]culos:\s*([0-9]+)", text))
+            current.setdefault("Longitud_m", rx(r"Longitud:\s*([0-9]+(?:[.,][0-9]+)?)\s*m", text))
+            current.setdefault("TiempoStandard_s", rx(r"Tiempo\s*Standard:\s*([0-9]+(?:[.,][0-9]+)?)\s*s", text))
+            current.setdefault("TiempoMaximo_s", rx(r"Tiempo\s*M[aá]ximo:\s*([0-9]+(?:[.,][0-9]+)?)\s*s", text))
+            current.setdefault("Velocidad_ms", rx(r"Velocidad:\s*([0-9]+(?:[.,][0-9]+)?)\s*m/s", text))
 
     return meta
 
