@@ -530,6 +530,23 @@ def parse_participant_row(row_div, valid_runs_upper: Set[str]) -> Optional[Dict[
     return rec
 
 
+def resolve_run_metadata_for_results(run_meta: Dict[str, Dict[str, str]], observed_runs: Set[str]) -> Dict[str, Dict[str, str]]:
+    """Alinea metadatos genéricos JP/AG con los prefijos reales del resultado.
+
+    FlowAgility puede mostrar ``JP`` en la cabecera y ``JP1`` en la fila de
+    resultados. Solo se copia el metadato si hay una única candidata numerada,
+    evitando adjudicar un juez ambiguamente entre JP1 y JP2.
+    """
+    resolved = {str(run).upper(): dict(values) for run, values in run_meta.items()}
+    observed = {str(run).upper() for run in observed_runs}
+    for base in ("JP", "AG"):
+        if base not in resolved:
+            continue
+        candidates = sorted(run for run in observed if run.startswith(base) and run != base)
+        if len(candidates) == 1 and candidates[0] not in resolved:
+            resolved[candidates[0]] = dict(resolved[base])
+    return resolved
+
 def parse_file(path: Path) -> pd.DataFrame:
     html = path.read_text(encoding="utf-8", errors="ignore")
     soup = BeautifulSoup(html, "html.parser")
@@ -546,7 +563,10 @@ def parse_file(path: Path) -> pd.DataFrame:
         url_date = date_iso_from_organ_caption(organ_caption)
 
     run_meta = extract_run_meta(soup)
-    valid_runs_upper = set(run_meta.keys())
+    # Las filas pueden usar JP1/AG1 aunque la cabecera diga solo JP/AG.
+    # Se leen primero todas las modalidades conocidas y después se alinean
+    # metadatos sin asignar jueces cuando haya ambigüedad.
+    valid_runs_upper = {run.upper() for run in RUN_PREFIXES}
 
     header_row = soup.find("div", class_=lambda c: c and "bg-gray-300" in c and "flex-row" in c)
     if not header_row:
@@ -568,12 +588,19 @@ def parse_file(path: Path) -> pd.DataFrame:
         rec["Classificacion"] = classificacion
         rec["Organ_caption"] = organ_caption
 
+        observed_runs = {
+            key.split("_", 1)[0].upper()
+            for key in rec
+            if "_" in key and key.split("_", 1)[0].upper() in valid_runs_upper
+        }
+        resolved_meta = resolve_run_metadata_for_results(run_meta, observed_runs)
+
         # nuevos campos por archivo
         rec["URLFuente"] = urlfuente
         rec["ring_id"] = ring_id
         rec["Fecha"] = url_date  # ya ISO si venía de /date/
 
-        for run, md in run_meta.items():
+        for run, md in resolved_meta.items():
             rec[f"{run}_Obstaculos"] = md.get("Obstaculos", "")
             rec[f"{run}_Longitud_m"] = md.get("Longitud_m", "")
             rec[f"{run}_TiempoStandard_s"] = md.get("TiempoStandard_s", "")
