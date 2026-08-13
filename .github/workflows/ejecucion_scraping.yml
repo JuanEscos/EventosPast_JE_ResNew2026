@@ -42,6 +42,30 @@ jobs:
         run: |
           cd scripts
           python main_orquestador.py
+
+      # Conserva evidencia de RIALP para inspeccionar los HTML fuente y cada CSV
+      # sin versionar todos los archivos intermedios en el repositorio.
+      - name: "Diagnóstico RIALP: HTML y CSV"
+        if: always()
+        run: |
+          mkdir -p diagnostic-rialp
+          find scripts/Results/prints_html -type f -name '*_5ce8b9b7-e68b-4d16-bc4b-c9e82d9e718d_*_combined_results.html' -print0 2>/dev/null | \
+            xargs -0 -r -I{} cp "{}" diagnostic-rialp/
+          cp scripts/combined_results_con_cabecera_raw.csv diagnostic-rialp/ 2>/dev/null || true
+          cp scripts/combined_results_con_cabecera_long.csv diagnostic-rialp/ 2>/dev/null || true
+          cp scripts/combined_results_con_cabecera_union_meta_long.csv diagnostic-rialp/ 2>/dev/null || true
+          cp scripts/combined_results_con_cabecera_wp.csv diagnostic-rialp/ 2>/dev/null || true
+          grep -RIn 'Juez:' diagnostic-rialp --include='*.html' > diagnostic-rialp/jueces_en_html.txt || true
+          python -c "import csv; from pathlib import Path; p=Path('scripts/combined_results_con_cabecera_wp.csv'); rows=list(csv.DictReader(p.open(encoding='utf-8-sig', newline=''))) if p.exists() else []; r=[x for x in rows if x.get('Evento')=='RIALP Summer Agility Cup 2026']; j=sorted({x.get('Juez','').strip() for x in r if x.get('Juez','').strip()}); print(f'RIALP_FILAS={len(r)}'); print(f'RIALP_FILAS_CON_JUEZ={sum(bool(x.get(\"Juez\", \"\").strip()) for x in r)}'); print('RIALP_JUECES=' + (' | '.join(j) if j else '(ninguno)'))" > diagnostic-rialp/resumen_juez_csv.txt
+
+      - name: Subir diagnóstico RIALP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostico-rialp-${{ github.run_id }}
+          path: diagnostic-rialp/
+          if-no-files-found: warn
+          retention-days: 14
           
       - name: Copiar resultados y hacer commit
         run: |
