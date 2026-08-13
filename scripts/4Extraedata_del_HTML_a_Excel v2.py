@@ -455,12 +455,12 @@ def extract_run_meta(soup: BeautifulSoup) -> Dict[str, Dict[str, str]]:
 
         run = run.upper()
         meta[run] = {
-            "Obstaculos": rx(r"Obst[aá]culos:\s*([0-9]+)", t0),
-            "Longitud_m": rx(r"Longitud:\s*([0-9]+(?:[.,][0-9]+)?)\s*m", t0),
-            "TiempoStandard_s": rx(r"Tiempo\s*Standard:\s*([0-9]+(?:[.,][0-9]+)?)\s*s", t1),
-            "TiempoMaximo_s": rx(r"Tiempo\s*M[aá]ximo:\s*([0-9]+(?:[.,][0-9]+)?)\s*s", t1),
-            "Juez": rx(r"Juez:\s*(.*?)\s*(?:Velocidad:|$)", t2),
-            "Velocidad_ms": rx(r"Velocidad:\s*([0-9]+(?:[.,][0-9]+)?)\s*m/s", t2),
+            "Obstaculos": rx(r"(?:Obst[aá]culos|Obstacles):\s*([0-9]+)", t0),
+            "Longitud_m": rx(r"(?:Longitud|Length):\s*([0-9]+(?:[.,][0-9]+)?)\s*m", t0),
+            "TiempoStandard_s": rx(r"(?:Tiempo\s*Standard|Standard\s*Time):\s*([0-9]+(?:[.,][0-9]+)?)\s*s", t1),
+            "TiempoMaximo_s": rx(r"(?:Tiempo\s*M[aá]ximo|Maximum\s*Time):\s*([0-9]+(?:[.,][0-9]+)?)\s*s", t1),
+            "Juez": rx(r"(?:Juez|Judge):\s*(.*?)\s*(?:Velocidad|Speed):|(?:Juez|Judge):\s*(.*)$", t2),
+            "Velocidad_ms": rx(r"(?:Velocidad|Speed):\s*([0-9]+(?:[.,][0-9]+)?)\s*m/s", t2),
         }
 
     # Algunas plantillas de impresión no presentan los metadatos en la
