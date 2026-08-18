@@ -24,10 +24,10 @@ jobs:
         run: |
           pip install -r requirements.txt
           
-      - name: Instalar browsers de Playwright
-        run: |
-          playwright install chromium
-          playwright install-deps chromium
+      # ubuntu-latest ya incluye las bibliotecas del sistema necesarias para Chromium.
+      # Evitamos `playwright install-deps`: invoca apt y puede bloquearse por mirrors externos.
+      - name: Instalar browser de Playwright
+        run: playwright install chromium
 
       - name: Setup Chrome para Selenium
         uses: browser-actions/setup-chrome@v1
