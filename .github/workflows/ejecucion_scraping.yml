@@ -91,72 +91,31 @@ jobs:
           # Hacer push
           git push
           
-      - name: Importar CSV en BD WordPress (via curl)
-        id: import_db
-        run: |
-          echo "Esperando 10s para que GitHub propague el CSV..."
-          sleep 10
-          HTTP_STATUS=$(curl -s -o /tmp/import_response.txt -w "%{http_code}" \
-            --max-time 300 \
-            -X POST \
-            "https://agilitydivertidog.com/NewWeb/Privado/ControlWeb/aniadir_resultados_por_prueba_para_WP_a_JE_ResNew2026.php" \
-            -d "run_import=1&auto_token=${{ secrets.IMPORT_TOKEN }}")
-          echo "--- Respuesta del servidor ---"
-          cat /tmp/import_response.txt
-          echo ""
-          echo "--- HTTP Status: $HTTP_STATUS ---"
-          
-          # Guardar resumen para el email
-          RESUMEN=$(cat /tmp/import_response.txt)
-          echo "import_resumen<<EOF" >> $GITHUB_OUTPUT
-          echo "$RESUMEN" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "http_status=$HTTP_STATUS" >> $GITHUB_OUTPUT
-          
-          if [ "$HTTP_STATUS" != "200" ]; then
-            echo "ERROR: El servidor devolvió HTTP $HTTP_STATUS"
-            exit 1
-          fi
+      # JE_ResNew2026 fue retirada. El histórico se consulta en origen mediante
+      # flow_db.php y JE_FlowData2025/2026, por lo que este pipeline termina al
+      # publicar el CSV generado en el repositorio.
 
-          # Solo rechazar señales estructurales de PHP/MySQL. El resumen correcto
-          # contiene la palabra "error" en "Filas con error: 0".
-          if grep -Eiq 'fatal error|mysqli_sql_exception|duplicate entry|^ERROR:' /tmp/import_response.txt; then
-            echo "ERROR: El importador PHP devolvió un error aunque HTTP fuese 200"
-            exit 1
-          fi
-
-          echo "Importación completada correctamente."
-
-      - name: Enviar email de resumen
-        if: always()
-        uses: dawidd6/action-send-mail@v3
+      - name: Enviar email si falla el pipeline
+        if: failure()
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7 # v3
         with:
           server_address: smtp.gmail.com
           server_port: 465
           secure: true
           username: jescosq@gmail.com
           password: ${{ secrets.GMAIL_APP_PASSWORD }}
-          subject: >
-            ${{ job.status == 'success' && '✅ FlowAgility – Pipeline completado correctamente' || '❌ FlowAgility – ERROR en el pipeline' }}
+          subject: "❌ FlowAgility – ERROR en el pipeline"
           to: jescosq@gmail.com
           from: "FlowAgility Bot <jescosq@gmail.com>"
           body: |
-            🐕 ORQUESTADOR FLOWAGILITY – INFORME DE EJECUCIÓN
-            ==================================================
-            
-            Fecha:   ${{ github.event.head_commit.timestamp || '' }}
+            🐕 ORQUESTADOR FLOWAGILITY – ERROR DE EJECUCIÓN
+            =================================================
+
             Estado:  ${{ job.status }}
             Commit:  ${{ github.sha }}
             Rama:    ${{ github.ref_name }}
-            
-            --------------------------------------------------
-            📊 RESUMEN IMPORTACIÓN EN BASE DE DATOS
-            --------------------------------------------------
-            ${{ steps.import_db.outputs.import_resumen || '(sin datos – el pipeline falló antes de importar)' }}
-            
-            --------------------------------------------------
-            🔗 Ver detalles completos en GitHub Actions:
+
+            Ver detalles completos en GitHub Actions:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-            --------------------------------------------------
-            
+
             Este correo fue generado automáticamente por GitHub Actions.

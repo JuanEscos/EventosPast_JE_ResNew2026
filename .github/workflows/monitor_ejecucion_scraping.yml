@@ -1,0 +1,137 @@
+name: Revisar semanalmente ejecución del scraping
+
+on:
+  schedule:
+    # GitHub usa UTC. Se lanzan las dos horas posibles y el job continúa
+    # únicamente con la que corresponde a las 09:00 en Europe/Madrid.
+    # La decisión usa la hora programada, no la hora real de arranque, para
+    # tolerar retrasos de la cola de GitHub Actions.
+    - cron: '0 7 * * 3'
+    - cron: '0 8 * * 3'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  revisar-ultima-ejecucion:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comprobar hora local
+        id: local_time
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+        run: |
+          python - <<'PY'
+          import os
+          from datetime import datetime, time, timezone
+          from zoneinfo import ZoneInfo
+
+          should_run = os.environ["EVENT_NAME"] == "workflow_dispatch"
+          if not should_run:
+              minute, hour, *_ = os.environ["EVENT_SCHEDULE"].split()
+              today_utc = datetime.now(timezone.utc).date()
+              scheduled_utc = datetime.combine(
+                  today_utc,
+                  time(int(hour), int(minute)),
+                  tzinfo=timezone.utc,
+              )
+              should_run = scheduled_utc.astimezone(ZoneInfo("Europe/Madrid")).hour == 9
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"run={'true' if should_run else 'false'}\n")
+          PY
+
+      - name: Revisar la última ejecución completada
+        id: check
+        if: steps.local_time.outputs.run == 'true'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          RESPONSE=$(curl --fail-with-body --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 30 \
+            --retry 2 \
+            --retry-delay 2 \
+            --retry-all-errors \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "${{ github.api_url }}/repos/${{ github.repository }}/actions/workflows/ejecucion_scraping.yml/runs?status=completed&per_page=1")
+          CURL_STATUS=$?
+          set -e
+          export RESPONSE
+          export CURL_STATUS
+          python - <<'PY'
+          import json
+          import os
+
+          workflow_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/workflows/ejecucion_scraping.yml"
+          monitor_error = ""
+          try:
+              curl_status = int(os.environ["CURL_STATUS"])
+              if curl_status != 0:
+                  raise RuntimeError(f"curl terminó con código {curl_status}")
+
+              payload = json.loads(os.environ["RESPONSE"])
+              runs = payload.get("workflow_runs")
+              if not isinstance(runs, list):
+                  raise ValueError("la respuesta no contiene workflow_runs como lista")
+
+              if not runs:
+                  conclusion = "sin ejecuciones completadas"
+                  failed = False
+                  run_url = workflow_url
+                  run_number = "N/A"
+                  created_at = "N/A"
+              else:
+                  run = runs[0]
+                  conclusion = run.get("conclusion") or run.get("status") or "desconocido"
+                  failed = conclusion != "success"
+                  run_url = run.get("html_url") or workflow_url
+                  run_number = str(run.get("run_number", "N/A"))
+                  created_at = run.get("created_at", "N/A")
+          except (json.JSONDecodeError, TypeError, ValueError, RuntimeError) as exc:
+              conclusion = "error del monitor"
+              failed = True
+              run_url = workflow_url
+              run_number = "N/A"
+              created_at = "N/A"
+              monitor_error = str(exc).replace("\n", " ")[:300]
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"failed={'true' if failed else 'false'}\n")
+              output.write(f"conclusion={conclusion}\n")
+              output.write(f"run_url={run_url}\n")
+              output.write(f"run_number={run_number}\n")
+              output.write(f"created_at={created_at}\n")
+              output.write(f"monitor_error={monitor_error}\n")
+          PY
+
+      - name: Avisar por email si se produjo un fallo
+        if: >-
+          always() &&
+          steps.local_time.outputs.run == 'true' &&
+          (steps.check.outcome == 'failure' || steps.check.outputs.failed == 'true')
+        uses: dawidd6/action-send-mail@4226df7daafa6fc901a43789c49bf7ab309066e7 # v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: jescosq@gmail.com
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          subject: "❌ Revisión semanal – fallo en ejecucion_scraping.yml"
+          to: jescosq@gmail.com
+          from: "FlowAgility Bot <jescosq@gmail.com>"
+          body: |
+            La revisión semanal de ejecucion_scraping.yml ha detectado un fallo.
+
+            Ejecución: #${{ steps.check.outputs.run_number }}
+            Estado: ${{ steps.check.outputs.conclusion }}
+            Iniciada: ${{ steps.check.outputs.created_at }}
+            Error del monitor: ${{ steps.check.outputs.monitor_error || '(ninguno)' }}
+
+            Detalles:
+            ${{ steps.check.outputs.run_url }}
