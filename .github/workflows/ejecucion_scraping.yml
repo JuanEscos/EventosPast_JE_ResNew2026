@@ -90,10 +90,70 @@ jobs:
           
           # Hacer push
           git push
-          
-      # JE_ResNew2026 fue retirada. El histórico se consulta en origen mediante
-      # flow_db.php y JE_FlowData2025/2026, por lo que este pipeline termina al
-      # publicar el CSV generado en el repositorio.
+
+      - name: Importar CSV en JE_FlowData2026
+        id: import_db
+        env:
+          IMPORT_TOKEN: ${{ secrets.IMPORT_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${IMPORT_TOKEN}" ]; then
+            echo "ERROR: IMPORT_TOKEN no está configurado"
+            exit 1
+          fi
+
+          echo "Esperando 10s para que GitHub propague el CSV..."
+          sleep 10
+
+          CSV_PATH="NewWeb/Privado/ControlWeb/Data/combined_results_con_cabecera_wp.csv"
+          EXPECTED_CSV_SHA256=$(sha256sum "${CSV_PATH}" | cut -d ' ' -f 1)
+
+          set +e
+          HTTP_STATUS=$(curl -sS \
+            --connect-timeout 10 \
+            --max-time 300 \
+            --retry 2 \
+            --retry-all-errors \
+            -o /tmp/import_response.txt \
+            -w "%{http_code}" \
+            -X POST \
+            "https://agilitydivertidog.com/NewWeb/Privado/ControlWeb/aniadir_resultados_por_prueba_para_WP_a_JE_FlowData2026.php" \
+            --data-urlencode "auto_token=${IMPORT_TOKEN}" \
+            --data-urlencode "expected_sha256=${EXPECTED_CSV_SHA256}")
+          CURL_STATUS=$?
+          set -e
+
+          cat /tmp/import_response.txt || true
+          echo "HTTP Status: ${HTTP_STATUS}"
+          echo "curl Status: ${CURL_STATUS}"
+
+          if [ "${CURL_STATUS}" -ne 0 ]; then
+            echo "ERROR: curl no pudo completar la importación"
+            exit 1
+          fi
+          if [ "${HTTP_STATUS}" != "200" ]; then
+            echo "ERROR: El importador devolvió HTTP ${HTTP_STATUS}"
+            exit 1
+          fi
+          if ! grep -Fq "=== RESUMEN IMPORTACIÓN ===" /tmp/import_response.txt; then
+            echo "ERROR: La respuesta no contiene un resumen de importación válido"
+            exit 1
+          fi
+          if ! grep -Fxq "CSV SHA-256 confirmado: ${EXPECTED_CSV_SHA256}" /tmp/import_response.txt; then
+            echo "ERROR: El importador no confirmó el SHA-256 del CSV publicado"
+            exit 1
+          fi
+          if grep -Eiq "^[[:space:]]*(fatal error|error|warning|mysqli_sql_exception)|^[[:space:]]*Filas con error:[[:space:]]*[1-9][0-9]*[[:space:]]*$" /tmp/import_response.txt; then
+            echo "ERROR: El importador informó de errores"
+            exit 1
+          fi
+          if ! grep -Eq "^[[:space:]]*Filas con error:[[:space:]]*0[[:space:]]*$" /tmp/import_response.txt; then
+            echo "ERROR: No se confirmó una importación sin errores"
+            exit 1
+          fi
+
+          echo "Importación en JE_FlowData2026 completada correctamente."
 
       - name: Enviar email si falla el pipeline
         if: failure()
