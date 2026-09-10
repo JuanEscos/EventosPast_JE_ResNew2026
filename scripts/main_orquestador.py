@@ -21,7 +21,7 @@ except ImportError:
 # =====================================================================
 # Formato: "YYYY-MM-DD" o cadena vacía "" para desactivar el límite
 FECHA_INICIO = "2026-01-01"  # No buscará eventos anteriores a esta fecha
-FECHA_FIN    = "2026-09-01"  # No guardará eventos posteriores a esta fecha
+FECHA_FIN    = ""            # Sin límite superior; la fuente ya contiene eventos pasados
 # =====================================================================
 
 def imprimir_titulo(texto):
