@@ -88,8 +88,23 @@ jobs:
           git add NewWeb/Privado/ControlWeb/Data/combined_results_con_cabecera_wp.csv
           git diff --staged --quiet || git commit -m "Actualizar combined_results_con_cabecera_wp.csv"
           
-          # Hacer push
-          git push
+          # La ejecución dura cerca de una hora. Si main avanza mientras tanto,
+          # conservar esos commits y reintentar el push del CSV sin sobrescribirlos.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git rebase origin/main
+
+            if git push origin HEAD:main; then
+              break
+            fi
+
+            if [ "${attempt}" -eq 3 ]; then
+              echo "ERROR: no se pudo publicar el CSV después de 3 intentos"
+              exit 1
+            fi
+
+            sleep $((attempt * 5))
+          done
 
       - name: Importar CSV en JE_FlowData2026
         id: import_db

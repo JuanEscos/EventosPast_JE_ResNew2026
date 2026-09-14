@@ -31,3 +31,12 @@ def test_import_response_validation_is_fail_closed():
     assert "^[[:space:]]*(fatal error|error|warning|mysqli_sql_exception)" in workflow
     assert "^[[:space:]]*Filas con error:[[:space:]]*[1-9][0-9]*[[:space:]]*$" in workflow
     assert "^[[:space:]]*Filas con error:[[:space:]]*0[[:space:]]*$" in workflow
+
+
+def test_csv_push_rebases_and_retries_if_main_advances_during_scraping():
+    workflow = workflow_text()
+    assert "for attempt in 1 2 3; do" in workflow
+    assert "git fetch origin main" in workflow
+    assert "git rebase origin/main" in workflow
+    assert "git push origin HEAD:main" in workflow
+    assert 'if [ "${attempt}" -eq 3 ]; then' in workflow
